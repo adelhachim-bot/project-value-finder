@@ -4,9 +4,9 @@ A Streamlit app that uses an LLM to understand projects and, later, find additio
 
 ## Current flow
 
-1. Paste a project description.
-2. The chatbot interviews you until the scope is complete enough to work from.
-3. The model classifies the project into one value category and subcategory from `data/Value_Categories.xlsx` (you can confirm or change it).
+1. Paste a project description **or upload a PDF/DOCX document**.
+2. The app checks whether it has enough to classify.
+3. The model classifies the project into one value category and subcategory from `data/Value_Categories.xlsx` (two-step: category, then subcategory).
 4. Additional value-finding comes next, using that classification.
 
 ## Taxonomy

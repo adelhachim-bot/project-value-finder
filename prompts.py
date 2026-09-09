@@ -1,161 +1,155 @@
-from categories import category_list_for_prompt
+from categories import CATEGORIES, category_list_for_prompt, subcategories_for
 
-SCOPE_TOPICS = [
-    {
-        "id": "problem_goals",
-        "label": "Problem & goals",
-        "prompt": "What problem is this project solving, and what does success look like?",
-    },
-    {
-        "id": "users_stakeholders",
-        "label": "Users & stakeholders",
-        "prompt": "Who uses, owns, funds, or is affected by this project?",
-    },
-    {
-        "id": "in_out_scope",
-        "label": "In / out of scope",
-        "prompt": "What is included now, and what is explicitly out of scope?",
-    },
-    {
-        "id": "success_metrics",
-        "label": "Success metrics",
-        "prompt": "How will impact be measured (KPIs, qualitative outcomes, timeboxes)?",
-    },
-    {
-        "id": "constraints",
-        "label": "Constraints",
-        "prompt": "Budget, timeline, regulations, tech stack, or other hard limits?",
-    },
-    {
-        "id": "current_state",
-        "label": "Current state",
-        "prompt": "What exists today (tools, processes, workarounds, pain points)?",
-    },
-    {
-        "id": "technical_context",
-        "label": "Technical context",
-        "prompt": "Systems, integrations, data, and delivery approach?",
-    },
-    {
-        "id": "risks_dependencies",
-        "label": "Risks & dependencies",
-        "prompt": "What could block delivery, and what does this project depend on?",
-    },
-    {
-        "id": "value_outcomes",
-        "label": "Value & outcomes",
-        "prompt": "What value is expected, for whom, and what extra value might be left on the table?",
-    },
-]
+SCOPE_ASSESSMENT_PROMPT = """You assess whether a project description has enough information to classify it into a value category and subcategory.
 
-TOPIC_IDS = [topic["id"] for topic in SCOPE_TOPICS]
-TOPIC_LABELS = {topic["id"]: topic["label"] for topic in SCOPE_TOPICS}
+Your goal is NOT to document every aspect of the project. You only need enough to confidently pick the right category and subcategory — what the project is, what domain it sits in, and what outcome it targets.
 
-SYSTEM_PROMPT = """You are a project scoping interviewer for a tool that later finds additional value in projects.
+A description is ready when you can answer:
+1. What is being done? (asset, activity, or intervention)
+2. Which domain does it mainly sit in? (e.g. energy, water, travel, safety, social value, ecology, carbon, project delivery)
+3. What outcome is intended?
 
-Your job in this version is NOT to recommend extra value yet, and NOT to classify the project yet. First, make sure the project scope is complete enough to work from. After that, a separate step will assign a value category.
+Examples of enough for classification:
+- "Retrofit office HVAC with heat pumps for a 50,000 sq ft campus to cut operational carbon 40% by 2027" → ready
+- "Community flood defence scheme along the River Avon, 3km embankment, EA-funded" → ready
+- "Improve our sustainability" → NOT ready (too vague)
 
-Interview style:
-- Ask 1–2 focused questions at a time.
-- Be concise, specific, and conversational.
-- Acknowledge useful answers briefly, then move to the next gap.
-- Never re-ask something already answered clearly.
-- Prefer concrete examples (“who signs off?”, “by when?”) over generic prompts.
-- If the description already covers a topic, mark it covered and skip it.
+When ready_to_classify is true:
+- Set readiness_pct to 90–100
+- Write scope_summary: 3–5 sentences capturing what matters for classification (domain, activity, outcome)
+- assistant_message: briefly confirm you have enough to classify (no follow-up questions)
 
-Coverage topics (track each as uncovered, partial, or covered):
-{topic_list}
+When ready_to_classify is false:
+- Set readiness_pct honestly (vague one-liner ≈ 15–30; paragraph missing one key detail ≈ 60–80)
+- List missing_aspects: 1–4 short phrases for what blocks classification
+- Ask 1–2 focused questions in assistant_message — only what you need to classify
 
-When enough is known to write a usable scope (most topics covered, remaining gaps called out), set interview_complete to true and include a structured scope_brief in markdown:
-
-# Project scope brief
-## Overview
-## Problem & goals
-## Users & stakeholders
-## In scope
-## Out of scope
-## Success metrics
-## Constraints
-## Current state
-## Technical context
-## Risks & dependencies
-## Expected value
-## Open questions
+Do NOT recommend extra value yet. Do NOT assign a category yourself.
 
 Always respond with a single JSON object:
 {{
-  "assistant_message": "what the user should see in the chat",
-  "topic_status": {{
-    "problem_goals": "uncovered|partial|covered",
-    ...every topic id...
-  }},
-  "interview_complete": false,
-  "scope_brief": null
+  "assistant_message": "plain text for the chat",
+  "ready_to_classify": false,
+  "readiness_pct": 0,
+  "missing_aspects": [],
+  "scope_summary": null
 }}
 
-Rules for JSON:
-- assistant_message is plain text for the chat (no JSON, no markdown fences).
-- topic_status must include every topic id.
-- scope_brief is null until interview_complete is true, then a markdown brief.
-- Do not claim the interview is complete while several core topics are still uncovered.
+Rules:
+- assistant_message is plain text (no JSON, no markdown fences).
+- readiness_pct is an integer 0–100 reflecting how close the description is to classifiable.
+- missing_aspects is empty when ready_to_classify is true.
+- scope_summary is null until ready_to_classify is true.
+- Prefer classifying sooner: if the domain and activity are clear, set ready_to_classify true even if some operational details are unknown.
 """
 
 
-def topic_list_for_prompt() -> str:
-    return "\n".join(
-        f"- {topic['id']}: {topic['label']} — {topic['prompt']}"
-        for topic in SCOPE_TOPICS
-    )
+def build_scope_assessment_prompt() -> str:
+    return SCOPE_ASSESSMENT_PROMPT
 
 
-def build_system_prompt() -> str:
-    return SYSTEM_PROMPT.format(topic_list=topic_list_for_prompt())
+def category_overview_for_prompt() -> str:
+    lines: list[str] = []
+    for category in CATEGORIES:
+        sub_names = ", ".join(sub["name"] for sub in category["subcategories"])
+        lines.append(f"- {category['id']}: {category['name']} (subcategories: {sub_names})")
+    return "\n".join(lines)
 
 
-def empty_topic_status() -> dict[str, str]:
-    return {topic_id: "uncovered" for topic_id in TOPIC_IDS}
+def subcategory_list_for_prompt(category_id: str) -> str:
+    lines: list[str] = []
+    for subcategory in subcategories_for(category_id):
+        lines.append(
+            f"- {subcategory['id']}: {subcategory['name']} — {subcategory['description']}"
+        )
+    return "\n".join(lines)
 
 
-CATEGORIZE_PROMPT = """You classify a project into exactly one primary value category and one subcategory from the taxonomy below. Later, another step will look for additional value inside that classification.
+CATEGORY_SELECT_PROMPT = """You choose exactly one primary value category for a project.
 
-Choose the category and subcategory that best describe where extra value should be sought — the project's main purpose and impact, not every theme mentioned in passing.
+Later steps will pick a subcategory and then look for additional value inside that classification.
+Do NOT recommend extra value yet. Do NOT pick a subcategory yet.
+
+Choose the category that best matches the project's main purpose, domain, and intended impact — not every theme mentioned in passing.
 
 Disambiguation:
-- Use Project Management & Delivery only when the work is mainly about how the project is planned, controlled, or delivered, not a domain outcome (carbon, water, travel, nature, social value, etc.).
-- Do not pick Project Management & Delivery just because every project has a schedule and budget.
-- GHG Emissions is about measuring, reducing, or managing greenhouse gases / embodied or operational carbon.
-- Energy is about electrification, generation, storage/fuels, and energy management as the core of the work.
-- Environmental Protection & Conservation is about nature-based solutions, ecology, geoenvironmental impacts, and nature-positive outcomes.
-- Water Infrastructure & Management is about water quality, efficiency, infrastructure, and protection.
-- Travel is about mobility, connectivity, and travel management.
-- If two classifications fit, pick the stronger primary and list the other as related.
+- Project Management & Delivery: only when the work is mainly about how the project is planned, controlled, costed, reported, or delivered — not a domain outcome.
+- GHG Emissions: measuring, reducing, or managing greenhouse gases / embodied or operational carbon as the core of the work.
+- Energy: electrification, generation, storage/fuels, or energy management as the core of the work. Prefer GHG Emissions when carbon reduction is the stated primary goal without energy-system work.
+- Environmental Protection & Conservation: ecology, nature-based solutions, geoenvironmental impacts, biodiversity, nature-positive outcomes.
+- Water Infrastructure & Management: water quality, efficiency, infrastructure, abstraction, or protection.
+- Drainage & Flooding: flood risk, sustainable drainage, water harvesting / runoff management.
+- Travel: mobility, connectivity, and travel management.
+- Sustainable Infrastructure & Behavioral Change: construction/site travel impacts, sustainable construction methods, and behavioral change programs.
+- Social Value & Equity: inclusion, community outcomes, skills, wellbeing, human rights, inequality.
+- Health & Safety: construction/operational/public safety and H&S management (not end-user indoor comfort — that is End User Health & Safety).
+- Air Quality: outdoor/indoor air pollution and air quality management.
+- Resilience & Adaptation: withstanding shocks, climate adaptation, resilient infrastructure/communities.
+- If two categories fit, pick the stronger primary.
 
-Taxonomy (use the ids exactly):
+Categories:
 {category_list}
 
 Always respond with a single JSON object:
 {{
   "primary_category_id": "one of the category ids above",
-  "primary_subcategory_id": "one subcategory id that belongs to that category",
   "confidence": "high|medium|low",
-  "rationale": "2–4 sentences explaining the category and subcategory choice from the project facts",
+  "rationale": "2–3 sentences explaining the category choice from the project facts"
+}}
+
+Rules:
+- primary_category_id must be one of the listed ids.
+- Prefer a domain category over Project Management & Delivery whenever a clear domain outcome exists.
+"""
+
+
+SUBCATEGORY_SELECT_PROMPT = """You choose exactly one subcategory within the already selected primary category.
+
+The primary category is fixed: {category_id} ({category_name}).
+Do NOT change the category. Do NOT recommend extra value yet.
+
+Pick the subcategory that best matches where additional value should later be sought — the project's main activity and impact within this category.
+
+Subcategories:
+{subcategory_list}
+
+Always respond with a single JSON object:
+{{
+  "primary_subcategory_id": "one of the subcategory ids above",
+  "confidence": "high|medium|low",
+  "rationale": "1–3 sentences explaining the subcategory choice",
   "related": [
     {{
-      "category_id": "another category id",
-      "subcategory_id": "optional matching subcategory id",
+      "category_id": "optional other category id from the broader taxonomy",
+      "subcategory_id": "optional subcategory id if known",
       "reason": "why this is a secondary theme"
     }}
   ]
 }}
 
 Rules:
-- primary_category_id and primary_subcategory_id must be ids from the taxonomy.
-- primary_subcategory_id must belong to primary_category_id.
+- primary_subcategory_id must be one of the listed ids for this category.
 - related may be empty, and at most 3 items.
-- related must not repeat the primary category/subcategory pair.
-- Do not recommend extra value opportunities yet.
+- related must not repeat the selected subcategory.
 """
 
 
+def build_category_select_prompt() -> str:
+    return CATEGORY_SELECT_PROMPT.format(category_list=category_overview_for_prompt())
+
+
+def build_subcategory_select_prompt(category_id: str, category_name: str) -> str:
+    return SUBCATEGORY_SELECT_PROMPT.format(
+        category_id=category_id,
+        category_name=category_name,
+        subcategory_list=subcategory_list_for_prompt(category_id),
+    )
+
+
+# Kept for any tooling that still expects a full single-shot prompt.
 def build_categorize_prompt() -> str:
-    return CATEGORIZE_PROMPT.format(category_list=category_list_for_prompt())
+    return (
+        "Use two-step classification via build_category_select_prompt and "
+        "build_subcategory_select_prompt.\n\n"
+        + category_list_for_prompt()
+    )
