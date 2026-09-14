@@ -4,8 +4,6 @@ Streamlit + OpenAI app that takes a project description (typed or uploaded), che
 
 A later step (not built yet) will suggest **additional value** opportunities based on that classification.
 
-This project is intended for **local use only**. Do not deploy it publicly or commit API keys.
-
 ---
 
 ## Features
@@ -119,15 +117,7 @@ Build an **additional value** step that runs after classification:
 
 Natural place to add this: a new function in `llm.py`, a new prompt in `prompts.py`, and a panel in `app.py` after `st.session_state.category` is set.
 
----
 
-## Security / company use
-
-- Run locally or on your company’s private infrastructure only
-- Do not publish the app on Streamlit Community Cloud
-- Keep the GitHub repository **private**
-- Rotate any API key that was ever used in a public deployment or shared chat
-- Prefer company-managed secrets (`.env` on a secure machine, or your internal secret store)
 
 ---
 
