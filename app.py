@@ -173,7 +173,7 @@ with st.sidebar:
         "OpenAI API key",
         value=_configured_secret("OPENAI_API_KEY"),
         type="password",
-        help="Prefer Streamlit Cloud Secrets or a local .env. Sidebar value is session-only.",
+        help="Prefer a local .env file. Sidebar value is only kept for this browser session.",
     )
     if api_key_input:
         os.environ["OPENAI_API_KEY"] = api_key_input

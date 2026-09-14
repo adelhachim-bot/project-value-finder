@@ -1,51 +1,142 @@
 # Project Value Finder
 
-A Streamlit app that uses an LLM to understand projects and, later, find additional value in them.
+Streamlit + OpenAI app that takes a project description (typed or uploaded), checks whether there is enough detail to classify it, then assigns a **value category** and **subcategory**.
 
-## Current flow
+A later step (not built yet) will suggest **additional value** opportunities based on that classification.
 
-1. Paste a project description **or upload a PDF/DOCX document**.
-2. The app checks whether it has enough to classify.
-3. The model classifies the project into one value category and subcategory from `data/Value_Categories.xlsx` (two-step: category, then subcategory).
-4. Additional value-finding comes next, using that classification.
+This project is intended for **local use only**. Do not deploy it publicly or commit API keys.
 
-## Taxonomy
+---
 
-Loaded from `data/Value_Categories.xlsx`: 28 categories and 129 subcategories.
+## Features
 
-## Setup (local)
+- Paste a project description, or upload **PDF / DOCX / TXT / MD**
+- LLM readiness check: classify immediately if clear, otherwise ask a few follow-ups
+- Two-step classification against `data/Value_Categories.xlsx` (28 categories, 129 subcategories)
+- Category is model-assigned (no manual override in the UI)
+- Short scope summary after classification
+
+---
+
+## Requirements
+
+- Python 3.10+
+- An OpenAI API key (or compatible API with `OPENAI_BASE_URL`)
+
+---
+
+## Quick start (local)
 
 ```bash
+git clone <this-repo-url>
 cd project-value-finder
+
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
 cp .env.example .env
 ```
 
-Put your OpenAI API key in `.env`:
+Edit `.env` and set your key:
 
 ```
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=your-key-here
 OPENAI_MODEL=gpt-4o-mini
 ```
+
+Run:
 
 ```bash
 streamlit run app.py
 ```
 
-## Deploy on Streamlit Community Cloud (free)
+Open [http://localhost:8501](http://localhost:8501).
 
-1. Push this repo to GitHub (public is simplest on the free tier).
-2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
-3. Click **New app**, pick this repository, branch `main`, and set **Main file path** to `app.py`.
-4. Under **Advanced settings → Secrets**, add:
+You can also paste the API key in the sidebar instead of using `.env`.
 
-```toml
-OPENAI_API_KEY = "sk-..."
-OPENAI_MODEL = "gpt-4o-mini"
+---
+
+## How the app works
+
+1. **Input** — user pastes text or uploads a document (`document_loader.py` extracts text).
+2. **Readiness assessment** — `assess_scope_turn()` asks the model if the description is enough to classify. If not, it asks 1–2 targeted questions and updates a readiness %.
+3. **Classification** — when ready, `categorize_project()` runs two LLM calls:
+   - pick a **category**
+   - pick a **subcategory** inside that category
+4. **Display** — chat, category panel, related themes, and a short scope summary.
+
+Prompts live in `prompts.py`. Taxonomy is loaded from Excel by `categories.py`.
+
+---
+
+## Project structure
+
+```
+project-value-finder/
+├── app.py                 # Streamlit UI and session flow
+├── llm.py                 # OpenAI client, readiness + classification calls
+├── prompts.py             # System prompts
+├── categories.py          # Loads and indexes Value_Categories.xlsx
+├── document_loader.py     # PDF / DOCX / text extraction
+├── data/
+│   └── Value_Categories.xlsx
+├── requirements.txt
+├── .env.example           # Copy to .env (never commit .env)
+└── .streamlit/
+    └── config.toml        # Local Streamlit UI settings
 ```
 
-5. Deploy. Your app URL will look like `https://<app-name>.streamlit.app`.
+---
 
-Do not commit real API keys. Use Streamlit Secrets (or a local `.env` that stays gitignored).
+## Configuration
+
+| Variable | Required | Default | Notes |
+|----------|----------|---------|--------|
+| `OPENAI_API_KEY` | Yes | — | From `.env` or sidebar |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Any chat-completions model your key supports |
+| `OPENAI_BASE_URL` | No | OpenAI default | Optional proxy / compatible endpoint |
+
+`.env` is gitignored. Never commit real keys.
+
+---
+
+## Updating the taxonomy
+
+Edit `data/Value_Categories.xlsx` (columns: `Category`, `Sub-category`, `Description`). Restart the app so `categories.py` reloads the file.
+
+You may also need to update disambiguation rules in `prompts.py` if categories overlap.
+
+---
+
+## Suggested next step (for the next developer)
+
+Build an **additional value** step that runs after classification:
+
+- Inputs: project description, scope summary, confirmed category + subcategory
+- Output: concrete value opportunities for that taxonomy node
+- Keep classification read-only in the UI (already the case)
+
+Natural place to add this: a new function in `llm.py`, a new prompt in `prompts.py`, and a panel in `app.py` after `st.session_state.category` is set.
+
+---
+
+## Security / company use
+
+- Run locally or on your company’s private infrastructure only
+- Do not publish the app on Streamlit Community Cloud
+- Keep the GitHub repository **private**
+- Rotate any API key that was ever used in a public deployment or shared chat
+- Prefer company-managed secrets (`.env` on a secure machine, or your internal secret store)
+
+---
+
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| `Missing OPENAI_API_KEY` | Add it to `.env` or the sidebar |
+| Upload fails for `.doc` | Save as `.docx` and retry |
+| Empty text from PDF | PDF may be scanned/image-only; paste text instead |
+| Wrong category | Click **Reclassify**, or improve the description / taxonomy prompts |
+| Port 8501 in use | `streamlit run app.py --server.port 8502` |
