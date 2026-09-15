@@ -4,6 +4,8 @@ Streamlit + OpenAI app that takes a project description (typed or uploaded), che
 
 A later step (not built yet) will suggest **additional value** opportunities based on that classification.
 
+You can run it **locally** or deploy it on **Streamlit Community Cloud**. Never commit API keys.
+
 ---
 
 ## Features
@@ -55,6 +57,30 @@ You can also paste the API key in the sidebar instead of using `.env`.
 
 ---
 
+## Deploy on Streamlit Community Cloud
+
+The GitHub repo is private. Streamlit Cloud can still deploy it if you authorize access to the repo.
+
+1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
+2. Click **Create app** / **New app**.
+3. Choose:
+   - **Repository:** `adelhachim-bot/project-value-finder`
+   - **Branch:** `main`
+   - **Main file path:** `app.py`
+4. If the private repo is not listed, click **Manage app access** / authorize the Streamlit GitHub App for this repository.
+5. Under **Advanced settings → Secrets**, add:
+
+```toml
+OPENAI_API_KEY = "your-key-here"
+OPENAI_MODEL = "gpt-4o-mini"
+```
+
+6. Click **Deploy**. The app URL will look like `https://<app-name>.streamlit.app`.
+
+After each `git push` to `main`, Streamlit Cloud usually redeploys automatically.
+
+---
+
 ## How the app works
 
 1. **Input** — user pastes text or uploads a document (`document_loader.py` extracts text).
@@ -91,7 +117,7 @@ project-value-finder/
 
 | Variable | Required | Default | Notes |
 |----------|----------|---------|--------|
-| `OPENAI_API_KEY` | Yes | — | From `.env` or sidebar |
+| `OPENAI_API_KEY` | Yes | — | From `.env`, Streamlit Secrets, or sidebar |
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | Any chat-completions model your key supports |
 | `OPENAI_BASE_URL` | No | OpenAI default | Optional proxy / compatible endpoint |
 
@@ -117,7 +143,14 @@ Build an **additional value** step that runs after classification:
 
 Natural place to add this: a new function in `llm.py`, a new prompt in `prompts.py`, and a panel in `app.py` after `st.session_state.category` is set.
 
+---
 
+## Security / company use
+
+- Prefer a **private** GitHub repo (this one is private)
+- Put the OpenAI key in Streamlit **Secrets** or a local `.env` — never in git
+- Rotate any key that was previously shared or used in an old public deployment
+- Prefer company-managed secrets where possible
 
 ---
 
@@ -125,8 +158,9 @@ Natural place to add this: a new function in `llm.py`, a new prompt in `prompts.
 
 | Issue | Fix |
 |-------|-----|
-| `Missing OPENAI_API_KEY` | Add it to `.env` or the sidebar |
+| `Missing OPENAI_API_KEY` | Add it to `.env`, Streamlit Secrets, or the sidebar |
 | Upload fails for `.doc` | Save as `.docx` and retry |
 | Empty text from PDF | PDF may be scanned/image-only; paste text instead |
 | Wrong category | Click **Reclassify**, or improve the description / taxonomy prompts |
 | Port 8501 in use | `streamlit run app.py --server.port 8502` |
+| Private repo not listed on Streamlit | Authorize the Streamlit GitHub App for this repository |

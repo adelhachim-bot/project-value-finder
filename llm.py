@@ -36,7 +36,8 @@ def get_client() -> OpenAI:
     api_key = _secret("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "Missing OPENAI_API_KEY. Add it to a local .env file or enter it in the sidebar."
+            "Missing OPENAI_API_KEY. Add it to Streamlit Secrets, a local .env file, "
+            "or the sidebar."
         )
 
     kwargs: dict[str, Any] = {"api_key": api_key}
